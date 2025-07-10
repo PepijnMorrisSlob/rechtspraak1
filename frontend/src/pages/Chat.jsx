@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import SessionControl from '../components/SessionControl'
 
 function Chat() {
   const [messages, setMessages] = useState([
@@ -103,12 +104,46 @@ function Chat() {
     setFollowUpQuestions([])
   }
 
+  // Handle new session
+  const handleNewSession = () => {
+    const newSessionId = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+    setSessionId(newSessionId)
+    setMessages([
+      {
+        id: 1,
+        type: 'system',
+        content: 'Hallo! Ik ben uw RechtSpraak juridische assistent. Ik kan u helpen bij het vinden van informatie in uw juridische documenten. Waar kan ik u mee helpen?',
+        timestamp: new Date()
+      }
+    ])
+    setFollowUpQuestions([])
+  }
+
+  // Handle clear history
+  const handleClearHistory = () => {
+    setMessages([
+      {
+        id: 1,
+        type: 'system',
+        content: 'Chatgeschiedenis gewist. Waar kan ik u mee helpen?',
+        timestamp: new Date()
+      }
+    ])
+    setFollowUpQuestions([])
+  }
+
   return (
     <div className="page">
       <h1 className="page-title">Juridische Assistent Chat</h1>
       <p className="page-subtitle">
         Stel vragen over uw juridische documenten en krijg contextuele antwoorden
       </p>
+      
+      <SessionControl 
+        sessionId={sessionId}
+        onNewSession={handleNewSession}
+        onClearHistory={handleClearHistory}
+      />
       
       <div className="chat-container">
         <div className="chat-messages">
