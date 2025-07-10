@@ -1,0 +1,108 @@
+# RechtSpraak Archives RAG Assistant - Project Intelligence
+
+## Project Overview
+This is a RAG (Retrieval-Augmented Generation) web application for Dutch legal case law documents. The system allows users to input Google Drive links to legal documents, processes them through vectorize.io, and provides an intelligent chatbot interface for querying the legal knowledge base.
+
+## Key Project Patterns & Preferences
+
+### Architecture Patterns
+- **RAG System**: User Query → Vector Search → Context Retrieval → AI Response
+- **Batch Processing**: Process documents in batches to optimize API costs
+- **Service Layer**: Controllers → Services → Repositories → External APIs
+- **Single User**: No authentication required - designed for personal use
+
+### Technology Stack Requirements
+- **Frontend**: React 18+ with functional components, Vite for building
+- **Backend**: Node.js 18+ with Express.js, async/await patterns
+- **Vector Database**: vectorize.io API with default embeddings
+- **External APIs**: Google Drive API v3, OpenAI for chat responses
+- **Storage**: Local JSON/SQLite for metadata, vectorize.io for vectors
+
+### File Organization
+- All project files should be placed in the root directory (rechtspraak1/)
+- Frontend code goes in frontend/ directory
+- Backend code goes in backend/ directory
+- Memory bank documentation in memory-bank/ directory
+
+### Code Quality Standards
+- Use ES6+ JavaScript with async/await
+- Implement proper error handling with try/catch
+- Add JSDoc comments for complex functions
+- Use consistent naming conventions (camelCase for variables, PascalCase for components)
+- Implement input validation for all user inputs
+
+### Legal Context Integration
+- AI responses must be aware of Dutch legal terminology
+- Handle legal document structure (case citations, legal entities)
+- Preserve legal context in document processing
+- Use appropriate legal vocabulary in user interactions
+
+### API Integration Patterns
+- **vectorize.io**: Use batch processing to minimize costs
+- **Google Drive**: Implement proper OAuth or service account authentication
+- **Error Handling**: Implement retry logic for network failures
+- **Rate Limiting**: Respect API quotas and implement backoff strategies
+
+### Development Workflow
+- Use environment variables for all API keys and configuration
+- Implement proper CORS configuration for frontend/backend communication
+- Use nodemon for backend development with hot reload
+- Use Vite dev server for frontend development
+- Implement comprehensive logging for debugging
+
+### Performance Considerations
+- Implement lazy loading for large document sets
+- Use caching for frequently accessed vector search results
+- Optimize PDF processing for large legal documents
+- Implement pagination for document lists
+- Use efficient memory management for document processing
+
+### Security Patterns
+- Sanitize all user inputs (Google Drive links, chat queries)
+- Implement proper API key management
+- Don't expose internal system details in error messages
+- Validate file types and sizes before processing
+- Use HTTPS for all external API communications
+
+### User Experience Goals
+- Clean, intuitive interface that doesn't require technical knowledge
+- Fast response times (< 5 seconds for chat queries)
+- Clear progress indicators for document processing
+- User-friendly error messages with recovery suggestions
+- Responsive design for different screen sizes
+
+### Testing Strategy
+- Unit tests for all service layer functions
+- Integration tests for API endpoints
+- End-to-end testing with real document processing
+- Test error scenarios and recovery mechanisms
+- Performance testing for large document sets
+
+### Known Constraints & Considerations
+- Single-user application (no multi-user features)
+- API rate limits may affect processing speed
+- Large PDF files may require special handling
+- Cost management through batch processing
+- Network dependency for all external services
+
+### Memory Bank References
+Always reference the memory bank for:
+- Project requirements: memory-bank/projectbrief.md
+- User experience goals: memory-bank/productContext.md
+- Technical specifications: memory-bank/techContext.md
+- System architecture: memory-bank/systemPatterns.md
+- Current status: memory-bank/activeContext.md
+- Progress tracking: memory-bank/progress.md
+
+### Implementation Priority
+1. **Phase 1**: Basic project structure and infrastructure
+2. **Phase 2**: Google Drive and vectorize.io integration
+3. **Phase 3**: RAG implementation and chat interface
+4. **Phase 4**: UI polish and testing
+
+## Critical Success Factors
+- Documents must be properly vectorized and searchable
+- Chat responses must be accurate and contextually relevant
+- System must handle Dutch legal terminology correctly
+- Batch processing must work efficiently without errors
+- User interface must be intuitive and responsive 
