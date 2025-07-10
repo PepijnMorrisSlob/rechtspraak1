@@ -60,24 +60,43 @@ export class GoogleDriveService {
 
       console.log(`Downloading file ${fileId} from Google Drive`)
 
-      // Get file metadata
+      // Get file metadata first
       const metadata = await this.drive.files.get({
         fileId: fileId,
-        fields: 'id,name,mimeType,size,parents,createdTime,modifiedTime'
+        fields: 'id,name,mimeType,size,parents,createdTime,modifiedTime,webViewLink'
       })
+
+      // Validate file type
+      const mimeType = metadata.data.mimeType
+      if (!this.supportedMimeTypes.includes(mimeType)) {
+        throw new Error(`Unsupported file type: ${mimeType}. Supported types: PDF, DOCX, DOC, TXT, RTF`)
+      }
+
+      // Check file size (limit to 50MB for legal documents)
+      const maxSize = 50 * 1024 * 1024 // 50MB
+      if (metadata.data.size > maxSize) {
+        throw new Error(`File too large: ${Math.round(metadata.data.size / 1024 / 1024)}MB. Maximum allowed: 50MB`)
+      }
 
       // Download file content
       const content = await this.drive.files.get({
         fileId: fileId,
         alt: 'media'
-      })
+      }, { responseType: 'stream' })
+
+      // Save file to temp directory
+      const fileName = `${fileId}_${metadata.data.name}`
+      const filePath = path.join(this.tempDir, fileName)
+      
+      await this.saveStreamToFile(content.data, filePath)
 
       return {
         id: metadata.data.id,
         name: metadata.data.name,
         mimeType: metadata.data.mimeType,
-        size: metadata.data.size,
-        content: content.data,
+        size: parseInt(metadata.data.size),
+        filePath: filePath,
+        webViewLink: metadata.data.webViewLink,
         createdTime: metadata.data.createdTime,
         modifiedTime: metadata.data.modifiedTime
       }
@@ -89,10 +108,38 @@ export class GoogleDriveService {
         throw new Error('Access denied. Please make sure the file is publicly accessible or check your API credentials.')
       } else if (error.code === 404) {
         throw new Error('File not found. Please check the Google Drive link.')
+      } else if (error.message.includes('Unsupported file type')) {
+        throw error
+      } else if (error.message.includes('File too large')) {
+        throw error
       } else {
         throw new Error(`Google Drive error: ${error.message}`)
       }
     }
+  }
+
+  /**
+   * Save stream to file
+   * @param {Stream} stream - File stream
+   * @param {string} filePath - Target file path
+   * @returns {Promise<void>}
+   */
+  async saveStreamToFile(stream, filePath) {
+    return new Promise((resolve, reject) => {
+      const writeStream = fs.createWriteStream(filePath)
+      
+      stream.pipe(writeStream)
+      
+      writeStream.on('finish', () => {
+        console.log(`File saved to: ${filePath}`)
+        resolve()
+      })
+      
+      writeStream.on('error', (error) => {
+        console.error('Error saving file:', error)
+        reject(error)
+      })
+    })
   }
 
   /**
@@ -205,17 +252,62 @@ export class GoogleDriveService {
   }
 
   /**
+   * Cleanup temporary file
+   * @param {string} filePath - Path to file to cleanup
+   */
+  async cleanupTempFile(filePath) {
+    try {
+      if (fs.existsSync(filePath)) {
+        fs.unlinkSync(filePath)
+        console.log(`Cleaned up temp file: ${filePath}`)
+      }
+    } catch (error) {
+      console.error('Error cleaning up temp file:', error)
+    }
+  }
+
+  /**
+   * Cleanup all temporary files older than 1 hour
+   */
+  async cleanupOldTempFiles() {
+    try {
+      const files = fs.readdirSync(this.tempDir)
+      const oneHourAgo = Date.now() - (60 * 60 * 1000)
+      
+      for (const file of files) {
+        const filePath = path.join(this.tempDir, file)
+        const stats = fs.statSync(filePath)
+        
+        if (stats.mtime.getTime() < oneHourAgo) {
+          fs.unlinkSync(filePath)
+          console.log(`Cleaned up old temp file: ${file}`)
+        }
+      }
+    } catch (error) {
+      console.error('Error cleaning up old temp files:', error)
+    }
+  }
+
+  /**
    * Mock implementation for development without Google Drive API
    */
   mockDownloadFile(fileId) {
     console.log(`MOCK: Downloading file ${fileId}`)
     
+    // Create a mock file in temp directory
+    const fileName = `mock_${fileId}_Legal_Document.pdf`
+    const filePath = path.join(this.tempDir, fileName)
+    const mockContent = 'Mock PDF content for legal document - This would contain Dutch case law text in a real implementation.'
+    
+    fs.writeFileSync(filePath, mockContent)
+    
     return {
       id: fileId,
       name: `Mock Legal Document ${fileId.substring(0, 8)}.pdf`,
       mimeType: 'application/pdf',
-      size: 1024000, // 1MB
-      content: Buffer.from('Mock PDF content for legal document'),
+      size: mockContent.length,
+      filePath: filePath,
+      webViewLink: `https://drive.google.com/file/d/${fileId}/view`,
       createdTime: new Date().toISOString(),
       modifiedTime: new Date().toISOString()
     }

@@ -1,24 +1,42 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 
 function Chat() {
   const [messages, setMessages] = useState([
     {
       id: 1,
       type: 'system',
-      content: 'Hello! I\'m your RechtSpraak legal assistant. I can help you find information in your legal documents. What would you like to know?',
+      content: 'Hallo! Ik ben uw RechtSpraak juridische assistent. Ik kan u helpen bij het vinden van informatie in uw juridische documenten. Waar kan ik u mee helpen?',
       timestamp: new Date()
     }
   ])
   const [inputMessage, setInputMessage] = useState('')
   const [isLoading, setIsLoading] = useState(false)
+  const [sessionId, setSessionId] = useState(null)
+  const [followUpQuestions, setFollowUpQuestions] = useState([])
+  const messagesEndRef = useRef(null)
+
+  // Auto-scroll to bottom when new messages arrive
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }
+
+  useEffect(() => {
+    scrollToBottom()
+  }, [messages])
+
+  // Generate session ID on component mount
+  useEffect(() => {
+    const newSessionId = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+    setSessionId(newSessionId)
+  }, [])
 
   const handleSubmit = async (e) => {
     e.preventDefault()
     
-    if (!inputMessage.trim()) return
+    if (!inputMessage.trim() || !sessionId) return
 
     const userMessage = {
-      id: messages.length + 1,
+      id: Date.now(),
       type: 'user',
       content: inputMessage,
       timestamp: new Date()
@@ -27,36 +45,50 @@ function Chat() {
     setMessages(prev => [...prev, userMessage])
     setInputMessage('')
     setIsLoading(true)
+    setFollowUpQuestions([]) // Clear previous follow-up questions
 
     try {
-      // TODO: Implement API call to backend
       const response = await fetch('/api/chat', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ message: inputMessage }),
+        body: JSON.stringify({ 
+          message: inputMessage,
+          sessionId: sessionId,
+          options: {
+            maxResults: 5
+          }
+        }),
       })
 
       if (response.ok) {
         const result = await response.json()
         const assistantMessage = {
-          id: messages.length + 2,
+          id: Date.now() + 1,
           type: 'assistant',
           content: result.response,
           timestamp: new Date(),
-          sources: result.sources || []
+          citations: result.citations || [],
+          searchStats: result.searchStats,
+          metadata: result.metadata
         }
         setMessages(prev => [...prev, assistantMessage])
+        
+        // Set follow-up questions if available
+        if (result.followUpQuestions && result.followUpQuestions.length > 0) {
+          setFollowUpQuestions(result.followUpQuestions)
+        }
       } else {
-        throw new Error('Failed to get response')
+        const errorData = await response.json()
+        throw new Error(errorData.message || 'Failed to get response')
       }
     } catch (error) {
       console.error('Error:', error)
       const errorMessage = {
-        id: messages.length + 2,
+        id: Date.now() + 1,
         type: 'system',
-        content: 'Sorry, I encountered an error. Please try again.',
+        content: `Excuses, er is een fout opgetreden: ${error.message}. Probeer het opnieuw.`,
         timestamp: new Date()
       }
       setMessages(prev => [...prev, errorMessage])
@@ -65,11 +97,17 @@ function Chat() {
     }
   }
 
+  // Handle follow-up question click
+  const handleFollowUpQuestion = (question) => {
+    setInputMessage(question)
+    setFollowUpQuestions([])
+  }
+
   return (
     <div className="page">
-      <h1 className="page-title">Legal Assistant Chat</h1>
+      <h1 className="page-title">Juridische Assistent Chat</h1>
       <p className="page-subtitle">
-        Ask questions about your legal documents and get contextual answers
+        Stel vragen over uw juridische documenten en krijg contextuele antwoorden
       </p>
       
       <div className="chat-container">
@@ -78,50 +116,95 @@ function Chat() {
             <div key={message.id} className={`message ${message.type}`}>
               <div className="message-content">
                 <div className="message-text">{message.content}</div>
-                {message.sources && message.sources.length > 0 && (
-                  <div className="message-sources">
-                    <small>Sources: {message.sources.join(', ')}</small>
+                
+                {/* Display citations for assistant messages */}
+                {message.citations && message.citations.length > 0 && (
+                  <div className="message-citations">
+                    <h4>📚 Bronnen:</h4>
+                    {message.citations.map((citation) => (
+                      <div key={citation.id} className="citation">
+                        <div className="citation-header">
+                          <span className="citation-name">{citation.documentName}</span>
+                          <span className="citation-relevance">{citation.relevanceScore}% relevant</span>
+                        </div>
+                        <div className="citation-excerpt">"{citation.excerpt}"</div>
+                      </div>
+                    ))}
                   </div>
                 )}
+                
+                {/* Display search statistics for assistant messages */}
+                {message.searchStats && (
+                  <div className="message-stats">
+                    <small>
+                      💡 {message.searchStats.relevantResults} van {message.searchStats.totalResults} resultaten gebruikt
+                      {message.metadata && (
+                        <span> • Model: {message.metadata.model} • Turn: {message.metadata.conversationTurn}</span>
+                      )}
+                    </small>
+                  </div>
+                )}
+                
                 <div className="message-timestamp">
-                  {message.timestamp.toLocaleTimeString()}
+                  {message.timestamp.toLocaleTimeString('nl-NL')}
                 </div>
               </div>
             </div>
           ))}
+          
+          {/* Loading indicator */}
           {isLoading && (
             <div className="message assistant">
               <div className="message-content">
                 <div className="message-text">
                   <span className="loading"></span>
-                  Thinking...
+                  Aan het analyseren van juridische documenten...
                 </div>
               </div>
             </div>
           )}
+          
+          {/* Follow-up questions */}
+          {followUpQuestions.length > 0 && (
+            <div className="follow-up-questions">
+              <h4>💭 Vervolgvragen:</h4>
+              {followUpQuestions.map((question, index) => (
+                <button
+                  key={index}
+                  className="follow-up-question"
+                  onClick={() => handleFollowUpQuestion(question)}
+                >
+                  {question}
+                </button>
+              ))}
+            </div>
+          )}
+          
+          <div ref={messagesEndRef} />
         </div>
         
         <form onSubmit={handleSubmit} className="chat-input">
           <input
             type="text"
-            placeholder="Ask a question about your legal documents..."
+            placeholder="Stel een vraag over uw juridische documenten..."
             value={inputMessage}
             onChange={(e) => setInputMessage(e.target.value)}
-            disabled={isLoading}
+            disabled={isLoading || !sessionId}
           />
-          <button type="submit" className="btn btn-primary" disabled={isLoading}>
-            Send
+          <button type="submit" className="btn btn-primary" disabled={isLoading || !sessionId || !inputMessage.trim()}>
+            {isLoading ? 'Verwerken...' : 'Verzenden'}
           </button>
         </form>
       </div>
       
       <div className="card">
-        <h3>💡 Tips for Better Results</h3>
+        <h3>💡 Tips voor betere resultaten</h3>
         <ul style={{ paddingLeft: '20px' }}>
-          <li>Be specific about the legal topic or case you're interested in</li>
-          <li>Ask about specific legal concepts, precedents, or rulings</li>
-          <li>Use Dutch legal terminology when appropriate</li>
-          <li>You can ask follow-up questions to dive deeper into topics</li>
+          <li>Wees specifiek over het juridische onderwerp of de zaak waarin u geïnteresseerd bent</li>
+          <li>Vraag naar specifieke juridische concepten, precedenten of uitspraken</li>
+          <li>Gebruik Nederlandse juridische terminologie</li>
+          <li>U kunt vervolgvragen stellen om dieper in onderwerpen te duiken</li>
+          <li>Probeer concrete vragen zoals "Wat zijn de voorwaarden voor..." of "Hoe wordt... gedefinieerd?"</li>
         </ul>
       </div>
     </div>

@@ -1,10 +1,11 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 
 function Documents() {
   const [googleDriveLink, setGoogleDriveLink] = useState('')
   const [documents, setDocuments] = useState([])
   const [isProcessing, setIsProcessing] = useState(false)
   const [status, setStatus] = useState('')
+  const [processingStats, setProcessingStats] = useState(null)
 
   const handleSubmit = async (e) => {
     e.preventDefault()

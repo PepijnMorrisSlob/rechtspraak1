@@ -77,26 +77,25 @@ rechtspraak1/
 
 4. **Environment Configuration**
    
-   Create `backend/.env` file with:
-   ```env
-   # Server Configuration
-   PORT=5000
-   NODE_ENV=development
-   FRONTEND_URL=http://localhost:3000
-
-   # vectorize.io Configuration
-   VECTORIZE_API_KEY=your_vectorize_api_key_here
-   VECTORIZE_API_URL=https://api.vectorize.io/v1
-
-   # Google Drive API Configuration
-   GOOGLE_DRIVE_API_KEY=your_google_drive_api_key_here
-   GOOGLE_DRIVE_CLIENT_ID=your_google_drive_client_id_here
-   GOOGLE_DRIVE_CLIENT_SECRET=your_google_drive_client_secret_here
-
-   # OpenAI Configuration
-   OPENAI_API_KEY=your_openai_api_key_here
-   OPENAI_MODEL=gpt-3.5-turbo
+   Use the provided template files for easy setup:
+   ```bash
+   # Backend environment
+   cd backend
+   cp env.template .env
+   # Edit .env with your actual API keys
+   
+   # Frontend environment
+   cd frontend
+   cp env.template .env
+   # Edit .env with your frontend configuration
    ```
+   
+   Key environment variables required:
+   - `GOOGLE_DRIVE_API_KEY`: Google Drive API key
+   - `VECTORIZE_API_KEY`: vectorize.io API key
+   - `OPENAI_API_KEY`: OpenAI API key (optional)
+   - `PORT`: Backend server port (default: 3001)
+   - `VITE_API_BASE_URL`: Frontend API base URL
 
 ### Development
 
@@ -113,8 +112,8 @@ rechtspraak1/
    ```
 
 3. **Access the Application**
-   - Frontend: http://localhost:3000
-   - Backend API: http://localhost:5000
+   - Frontend: http://localhost:5173 (Vite dev server)
+   - Backend API: http://localhost:3001
 
 ## API Endpoints
 
@@ -148,23 +147,27 @@ rechtspraak1/
 - [x] Basic UI components and styling
 - [x] Environment configuration
 
-### Phase 2: Core Features (Next)
-- [ ] Google Drive integration
-- [ ] vectorize.io integration
-- [ ] Document processing pipeline
-- [ ] PDF text extraction
+### Phase 2: Core Features ✅
+- [x] Enhanced Google Drive integration with file validation
+- [x] DocumentProcessor service for text extraction
+- [x] PDF text extraction using pdf-parse
+- [x] Document chunking and metadata extraction
+- [x] Improved error handling and temp file management
+- [x] Enhanced vectorize.io integration with mock implementation
+- [x] Dutch legal terminology detection
+- [x] File type validation and size limits
 
-### Phase 3: RAG Implementation
-- [ ] Vector search functionality
-- [ ] AI response generation
-- [ ] Legal context integration
-- [ ] Chat interface completion
+### Phase 3: RAG Implementation (Next)
+- [ ] Real vectorize.io API integration
+- [ ] Advanced vector search functionality
+- [ ] AI response generation with legal context
+- [ ] Chat interface completion with document citations
 
 ### Phase 4: Polish & Testing
-- [ ] Error handling improvement
 - [ ] Performance optimization
 - [ ] Testing implementation
 - [ ] Documentation completion
+- [ ] Production deployment
 
 ## API Configuration
 

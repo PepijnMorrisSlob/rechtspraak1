@@ -1,12 +1,27 @@
 import { v4 as uuidv4 } from 'uuid'
 import { VectorService } from './VectorService.js'
 import { GoogleDriveService } from './GoogleDriveService.js'
+import { DocumentProcessor } from './DocumentProcessor.js'
 
 export class DocumentService {
   constructor() {
     this.vectorService = new VectorService()
     this.googleDriveService = new GoogleDriveService()
+    this.documentProcessor = new DocumentProcessor()
     this.documents = new Map() // In-memory storage for now
+    
+    // Start cleanup interval for old temp files
+    this.startCleanupInterval()
+  }
+
+  /**
+   * Start periodic cleanup of old temporary files
+   */
+  startCleanupInterval() {
+    // Clean up old temp files every 30 minutes
+    setInterval(() => {
+      this.googleDriveService.cleanupOldTempFiles()
+    }, 30 * 60 * 1000)
   }
 
   /**
@@ -58,6 +73,8 @@ export class DocumentService {
    * @param {string} documentId - Document ID
    */
   async processDocumentBackground(documentId) {
+    let tempFilePath = null
+    
     try {
       const document = this.documents.get(documentId)
       if (!document) {
@@ -73,30 +90,42 @@ export class DocumentService {
       document.name = fileData.name
       document.type = fileData.mimeType
       document.size = fileData.size
+      document.webViewLink = fileData.webViewLink
+      tempFilePath = fileData.filePath
 
       // Update status
       document.status = 'extracting'
       console.log(`Extracting text from document ${documentId}`)
 
-      // Extract text content
-      const textContent = await this.extractTextContent(fileData)
+      // Extract text content using DocumentProcessor
+      const textContent = await this.documentProcessor.extractText(fileData.filePath, fileData.mimeType)
       document.content = textContent
+
+      // Extract metadata
+      const metadata = this.documentProcessor.extractMetadata(textContent)
+      document.metadata = metadata
+
+      // Update status
+      document.status = 'chunking'
+      console.log(`Chunking document ${documentId}`)
+
+      // Chunk text content
+      const chunks = this.documentProcessor.chunkText(textContent)
+      document.chunks = chunks
+      document.chunkCount = chunks.length
 
       // Update status
       document.status = 'vectorizing'
       console.log(`Vectorizing document ${documentId}`)
 
-      // Chunk and vectorize content
-      const chunks = this.chunkText(textContent)
-      document.chunks = chunks
-
       // Send to vector database
-      await this.vectorService.addDocument(documentId, chunks)
+      const vectorResult = await this.vectorService.addDocument(documentId, chunks)
+      document.vectorResult = vectorResult
 
       // Update status
       document.status = 'completed'
       document.completedAt = new Date().toISOString()
-      console.log(`Document ${documentId} processing completed`)
+      console.log(`Document ${documentId} processing completed: ${chunks.length} chunks, ${textContent.length} characters`)
 
     } catch (error) {
       console.error(`Error processing document ${documentId}:`, error)
@@ -105,6 +134,11 @@ export class DocumentService {
         document.status = 'error'
         document.error = error.message
         document.errorAt = new Date().toISOString()
+      }
+    } finally {
+      // Clean up temporary file
+      if (tempFilePath) {
+        await this.googleDriveService.cleanupTempFile(tempFilePath)
       }
     }
   }
@@ -137,56 +171,7 @@ export class DocumentService {
     }
   }
 
-  /**
-   * Extract text content from file data
-   * @param {Object} fileData - File data from Google Drive
-   * @returns {Promise<string>} Extracted text
-   */
-  async extractTextContent(fileData) {
-    try {
-      // TODO: Implement text extraction based on file type
-      // For now, return placeholder text
-      return `This is placeholder text for document: ${fileData.name}. 
-      In a real implementation, this would extract text from PDF, DOCX, or other formats.
-      
-      This document contains Dutch legal case law and should be processed with legal context awareness.
-      
-      File type: ${fileData.mimeType}
-      File size: ${fileData.size} bytes
-      Processing timestamp: ${new Date().toISOString()}`
-    } catch (error) {
-      console.error('Error extracting text content:', error)
-      throw error
-    }
-  }
 
-  /**
-   * Chunk text into smaller segments for vectorization
-   * @param {string} text - Text to chunk
-   * @returns {Array<Object>} Array of text chunks
-   */
-  chunkText(text) {
-    try {
-      const chunkSize = 1000 // characters
-      const overlap = 100 // characters
-      const chunks = []
-
-      for (let i = 0; i < text.length; i += chunkSize - overlap) {
-        const chunk = text.substring(i, i + chunkSize)
-        chunks.push({
-          id: uuidv4(),
-          text: chunk,
-          startIndex: i,
-          endIndex: Math.min(i + chunkSize, text.length)
-        })
-      }
-
-      return chunks
-    } catch (error) {
-      console.error('Error chunking text:', error)
-      throw error
-    }
-  }
 
   /**
    * List all documents

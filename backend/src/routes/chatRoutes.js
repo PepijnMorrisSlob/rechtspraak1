@@ -6,11 +6,11 @@ const chatService = new ChatService()
 
 /**
  * POST /api/chat
- * Process a chat message and return AI response
+ * Process a chat message and return AI response with RAG
  */
 router.post('/', async (req, res) => {
   try {
-    const { message } = req.body
+    const { message, sessionId, options } = req.body
 
     if (!message || !message.trim()) {
       return res.status(400).json({
@@ -18,16 +18,29 @@ router.post('/', async (req, res) => {
       })
     }
 
-    console.log('Processing chat message:', message)
+    // Generate session ID if not provided
+    const activeSessionId = sessionId || `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
 
-    // TODO: Implement RAG processing
-    const result = await chatService.processMessage(message)
+    console.log(`Processing chat message for session ${activeSessionId}:`, message)
+
+    // Process message with RAG functionality
+    const result = await chatService.processMessage(activeSessionId, message, options)
 
     res.json({
       success: true,
-      response: result.response,
-      sources: result.sources || [],
-      timestamp: new Date().toISOString()
+      sessionId: activeSessionId,
+      response: result.aiResponse,
+      citations: result.citations || [],
+      followUpQuestions: result.followUpQuestions || [],
+      searchStats: {
+        totalResults: result.searchResultsCount,
+        relevantResults: result.relevantResultsCount
+      },
+      metadata: {
+        model: result.model,
+        conversationTurn: result.conversationTurn,
+        timestamp: result.timestamp
+      }
     })
   } catch (error) {
     console.error('Error processing chat message:', error)
@@ -39,40 +52,93 @@ router.post('/', async (req, res) => {
 })
 
 /**
- * GET /api/chat/history
- * Get chat history (if implemented)
+ * GET /api/chat/history/:sessionId
+ * Get conversation history for a specific session
  */
-router.get('/history', async (req, res) => {
+router.get('/history/:sessionId', async (req, res) => {
   try {
-    const history = await chatService.getChatHistory()
+    const { sessionId } = req.params
+    const history = await chatService.getConversationHistory(sessionId)
     res.json({
       success: true,
       history
     })
   } catch (error) {
-    console.error('Error getting chat history:', error)
+    console.error('Error getting conversation history:', error)
     res.status(500).json({
-      error: 'Failed to get chat history',
+      error: 'Failed to get conversation history',
       message: error.message
     })
   }
 })
 
 /**
- * DELETE /api/chat/history
- * Clear chat history
+ * DELETE /api/chat/history/:sessionId
+ * Clear conversation history for a specific session
  */
-router.delete('/history', async (req, res) => {
+router.delete('/history/:sessionId', async (req, res) => {
   try {
-    await chatService.clearChatHistory()
+    const { sessionId } = req.params
+    const result = await chatService.clearConversation(sessionId)
+    res.json(result)
+  } catch (error) {
+    console.error('Error clearing conversation history:', error)
+    res.status(500).json({
+      error: 'Failed to clear conversation history',
+      message: error.message
+    })
+  }
+})
+
+/**
+ * GET /api/chat/stats
+ * Get chat statistics
+ */
+router.get('/stats', async (req, res) => {
+  try {
+    const stats = await chatService.getChatStats()
     res.json({
       success: true,
-      message: 'Chat history cleared'
+      stats
     })
   } catch (error) {
-    console.error('Error clearing chat history:', error)
+    console.error('Error getting chat stats:', error)
     res.status(500).json({
-      error: 'Failed to clear chat history',
+      error: 'Failed to get chat stats',
+      message: error.message
+    })
+  }
+})
+
+/**
+ * POST /api/chat/search
+ * Search documents directly
+ */
+router.post('/search', async (req, res) => {
+  try {
+    const { query, options } = req.body
+
+    if (!query || !query.trim()) {
+      return res.status(400).json({
+        error: 'Query is required'
+      })
+    }
+
+    console.log('Searching documents for:', query)
+
+    const results = await chatService.searchDocuments(query, options)
+
+    res.json({
+      success: true,
+      query,
+      results,
+      resultsCount: results.length,
+      timestamp: new Date().toISOString()
+    })
+  } catch (error) {
+    console.error('Error searching documents:', error)
+    res.status(500).json({
+      error: 'Failed to search documents',
       message: error.message
     })
   }
